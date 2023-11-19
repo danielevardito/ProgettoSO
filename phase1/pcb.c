@@ -91,14 +91,63 @@ pcb_t *outProcQ(struct list_head *head, pcb_t *p) {
 }
 
 int emptyChild(pcb_t *p) {
-    if(list_empty(&p->p_child)) return NULL;
+    if(list_empty(&p->p_child)) return 1;
+
+    return 0;
 }
 
 void insertChild(pcb_t *prnt, pcb_t *p) {
+    if(list_empty(&prnt->p_child)){
+        prnt->p_child.next = &p->p_child;
+    }
+    else{
+        pcb_t * fstChild = container_of(&prnt->p_child.next, pcb_t, p_child);
+        struct list_head * tmp = &fstChild->p_sib;
+
+        while(tmp != tmp->next) tmp =  tmp->next;
+
+        tmp->next = &p->p_sib;
+        p->p_sib.prev = tmp;
+    }
+
+    p->p_parent = prnt;
 }
 
 pcb_t *removeChild(pcb_t *p) {
+    if(list_empty(&p->p_child)) return NULL;
+
+    pcb_t * child = container_of(&p->p_child.next, pcb_t, p_child);
+    child->p_parent = NULL;
+
+    if(list_empty(&child->p_sib))
+        INIT_LIST_HEAD(&p->p_child);
+    else{
+        p->p_child.next = child->p_sib.next;
+        INIT_LIST_HEAD(&child->p_sib);
+    }
+
+    return child;
 }
 
 pcb_t *outChild(pcb_t *p) {
+    if(p->p_parent == NULL) return NULL;
+
+    if(p->p_sib.prev == &p->p_sib){ //È il primo figlio
+        pcb_t * prnt = p->p_parent; 
+        if(list_empty(&p->p_sib)) //Se non ha fratelli
+            prnt->p_child.next = &prnt->p_child; 
+        else{  //se ha fratelli
+            prnt->p_child.next = &p->p_sib.next;
+            p->p_sib.next->prev = p->p_sib.next;
+        }
+    }
+    else if(p->p_sib.next != &p->p_sib) //È un figlio intermedio
+        list_del(&p->p_sib);
+    else //È l'ultimo figlio
+        p->p_sib.prev->next = p->p_sib.prev;
+
+    INIT_LIST_HEAD(&p->p_sib);
+    p->p_parent = NULL;
+
+    return p;
 }
