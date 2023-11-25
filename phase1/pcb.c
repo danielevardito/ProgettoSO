@@ -25,17 +25,12 @@ pcb_t *allocPcb() {
     /*
     inizializzazione dei campi
     */
-    /*p_list*/
     INIT_LIST_HEAD(&p->p_list);
-    /* process tree fields */
     p->p_parent = NULL;
     INIT_LIST_HEAD(&p->p_child);
     INIT_LIST_HEAD(&p->p_sib);
-    /*cpu_t*/
     p->p_time = 0;
-    /*msg_inbox*/
     INIT_LIST_HEAD(&p->msg_inbox);
-    //pid
     p->p_pid = next_pid;
     next_pid++;
 
@@ -85,8 +80,9 @@ pcb_t *outProcQ(struct list_head *head, pcb_t *p) {
     //se l'elemento non è stato trovato, ritorna NULL
     if(!found) return NULL;
 
-    //altrimenti rimuovi p dalla lista e ritornalo
+    //altrimenti rimuovi p dalla lista, svuota il campo p_list e ritorna p
     list_del(l);
+    INIT_LIST_HEAD(l);
     return p;
 }
 
@@ -97,7 +93,7 @@ int emptyChild(pcb_t *p) {
 }
 
 void insertChild(pcb_t *prnt, pcb_t *p) {
-    if(list_empty(&prnt->p_child)){
+    if(emptyChild(prnt)){
         prnt->p_child.next = &p->p_child;
     }
     else{
@@ -114,14 +110,16 @@ void insertChild(pcb_t *prnt, pcb_t *p) {
 }
 
 pcb_t *removeChild(pcb_t *p) {
-    if(list_empty(&p->p_child)) return NULL;
+    if(emptyChild(p)) return NULL;
 
     pcb_t * child = container_of(&p->p_child.next, pcb_t, p_child);
     child->p_parent = NULL;
 
     if(list_empty(&child->p_sib))
-        INIT_LIST_HEAD(&p->p_child);
+        //il padre non punta più al suo unico figlio    
+        INIT_LIST_HEAD(&p->p_child); 
     else{
+        //il padre punta come primo figlio al secondo figlio
         p->p_child.next = child->p_sib.next;
         INIT_LIST_HEAD(&child->p_sib);
     }
@@ -135,16 +133,16 @@ pcb_t *outChild(pcb_t *p) {
     if(p->p_sib.prev == &p->p_sib){ //È il primo figlio
         pcb_t * prnt = p->p_parent; 
         if(list_empty(&p->p_sib)) //Se non ha fratelli
-            prnt->p_child.next = &prnt->p_child; 
+            INIT_LIST_HEAD(&prnt->p_child);
         else{  //se ha fratelli
-            prnt->p_child.next = &p->p_sib.next;
-            p->p_sib.next->prev = p->p_sib.next;
+            prnt->p_child.next = &p->p_sib.next; //il padre punta al secondo figlio
+            p->p_sib.next->prev = p->p_sib.next; //il secondo fratello punterà con prev a se stesso, diventando il primo
         }
     }
     else if(p->p_sib.next != &p->p_sib) //È un figlio intermedio
         list_del(&p->p_sib);
     else //È l'ultimo figlio
-        p->p_sib.prev->next = p->p_sib.prev;
+        p->p_sib.prev->next = p->p_sib.prev; //Il penultimo figlio punta a se stesso per diventare l'ultimo
 
     INIT_LIST_HEAD(&p->p_sib);
     p->p_parent = NULL;
