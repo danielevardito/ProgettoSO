@@ -55,8 +55,13 @@ pcb_t *headProcQ(struct list_head *head) {
 }
 
 pcb_t *removeProcQ(struct list_head *head) {
+    //se è vuota ritorna NULL
     if(emptyProcQ(head)) return NULL;
 
+    /*
+    Altrimenti rimuovi il primo elemento (il next della sentinella)
+    e ritorna il pcb corrispondente
+    */
     struct list_head * l = head->next;
     pcb_t *p = container_of(l, pcb_t, p_list);
     list_del(l);
@@ -93,59 +98,47 @@ int emptyChild(pcb_t *p) {
 }
 
 void insertChild(pcb_t *prnt, pcb_t *p) {
+    /*se non ci sono figli, inserisci il primo figlio
+    facendo puntare da p_child.next del padre p_sib del nuovo figlio
+    */
     if(emptyChild(prnt)){
-        prnt->p_child.next = &p->p_child;
+        list_add(&p->p_sib, &prnt->p_child);
     }
     else{
-        pcb_t * fstChild = container_of(&prnt->p_child.next, pcb_t, p_child);
-        struct list_head * tmp = &fstChild->p_sib;
-
-        while(tmp != tmp->next) tmp =  tmp->next;
-
-        tmp->next = &p->p_sib;
-        p->p_sib.prev = tmp;
+        /*
+        se già ci sono figli, inserisci un figlio intermedio nella lista dei p_sib
+        */
+        pcb_t * fstChild = container_of(&prnt->p_child.next, pcb_t, p_sib);
+        list_add_tail(&p->p_sib, &prnt->p_child);
     }
 
     p->p_parent = prnt;
 }
 
 pcb_t *removeChild(pcb_t *p) {
+    //se non ci sono figli, ritorna NULL
     if(emptyChild(p)) return NULL;
 
-    pcb_t * child = container_of(&p->p_child.next, pcb_t, p_child);
-    child->p_parent = NULL;
+    /*
+    se ci sono figli, elimina il primo figlio
+    Settando a NULL suo padre ed eliminandolo dalla lista dei fratelli
+    */
+    pcb_t * son = container_of(p->p_child.next, pcb_t, p_sib);
+    son->p_parent = NULL;
+    list_del(&son->p_sib);
 
-    if(list_empty(&child->p_sib))
-        //il padre non punta più al suo unico figlio    
-        INIT_LIST_HEAD(&p->p_child); 
-    else{
-        //il padre punta come primo figlio al secondo figlio
-        p->p_child.next = child->p_sib.next;
-        INIT_LIST_HEAD(&child->p_sib);
-    }
-
-    return child;
+    return son;
 }
 
 pcb_t *outChild(pcb_t *p) {
+    //se non ha un padre, ritorna NULL
     if(p->p_parent == NULL) return NULL;
 
-    if(p->p_sib.prev == &p->p_sib){ //È il primo figlio
-        pcb_t * prnt = p->p_parent; 
-        if(list_empty(&p->p_sib)) //Se non ha fratelli
-            INIT_LIST_HEAD(&prnt->p_child);
-        else{  //se ha fratelli
-            prnt->p_child.next = &p->p_sib.next; //il padre punta al secondo figlio
-            p->p_sib.next->prev = p->p_sib.next; //il secondo fratello punterà con prev a se stesso, diventando il primo
-        }
-    }
-    else if(p->p_sib.next != &p->p_sib) //È un figlio intermedio
-        list_del(&p->p_sib);
-    else //È l'ultimo figlio
-        p->p_sib.prev->next = p->p_sib.prev; //Il penultimo figlio punta a se stesso per diventare l'ultimo
-
-    INIT_LIST_HEAD(&p->p_sib);
+    /*
+    altrimenti setta come padre NULL e rimuovilo dalla lista dei fratelli
+    */
     p->p_parent = NULL;
+    list_del(&p->p_sib);
 
     return p;
 }
