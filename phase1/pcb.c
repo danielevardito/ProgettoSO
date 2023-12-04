@@ -1,5 +1,4 @@
 #include "./headers/pcb.h"
-#include "../klog.c"
 
 static pcb_t pcbTable[MAXPROC];
 LIST_HEAD(pcbFree_h);
@@ -33,6 +32,7 @@ pcb_t *allocPcb() {
     p->p_supportStruct = NULL;
     p->p_pid = next_pid;
     next_pid++;
+    p->p_time = 0;
 
     return p;
 }

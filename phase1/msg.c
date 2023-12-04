@@ -1,4 +1,5 @@
 #include "./headers/msg.h"
+#include "../klog.c"
 
 static msg_t msgTable[MAXMESSAGES];
 LIST_HEAD(msgFree_h); //initializes msgFree_h as an empty linked list
@@ -13,10 +14,6 @@ void initMsgs() {
         
         INIT_LIST_HEAD(&msgTable[i].m_list);
         list_add_tail(&msgTable[i].m_list, &msgFree_h); //Aggiunge in coda tutti gli elementi di m_list
-
-        //&msgTable: riferimento a struct msg_t
-        //m_list: linked list_head appartenente allo struct msg_t
-        //&msgFree_h: riferimento alla linked list vuota
 
     }
 }
@@ -33,25 +30,21 @@ msg_t *allocMsg() {
     return a pointer to the removed element. 
     Messages get reused, so it is important that no previous value persist in amessage when it gets reallocated.*/
 
-    if (list_empty(&msgFree_h)) {// == 1 if the msgFree list is empty
-        return NULL;
-    }
-    else { //RIMUOVE IL PRIMO, L'ULTIMO?
-       
-        msg_t * entry = container_of(&msgFree_h.next, msg_t, m_list);
+    if (list_empty(&msgFree_h)) return NULL;
+    
+    msg_t * entry = container_of(msgFree_h.next, msg_t, m_list);
    
-        list_del(entry); //Rimuove l'elemento entry dalla lista in cui e' contenuto.
+    list_del(&entry->m_list); //Rimuove l'elemento entry dalla lista in cui e' contenuto.
 
-        //I CAMPI DI QUALE MESSAGGIO? *allocMsg? IL MESSAGGIO RIMOSSO? --> Messsaggio rimosso
+    INIT_LIST_HEAD(&entry->m_list); 
+    entry->m_sender = NULL;
+    entry->m_payload = 0;
 
-        INIT_LIST_HEAD(&entry->m_list); // inizializazione della linked list
-        entry->m_sender = /* assegnare un pcb_t pointer valido*/ NULL;
-        entry->m_payload = /* assegnare un payload */ 0;
+    return entry;
 
-        return entry;
-    }
+ }
 
-}
+
 
 void mkEmptyMessageQ(struct list_head *head) {
 	/* used to initialize a variable to be head pointer to a message queue;
@@ -68,12 +61,6 @@ int emptyMessageQ(struct list_head *head) {
     FALSE otherwise.*/
     //Se la coda della lista su cui punta head é vuota?Quindi se la lista é vuota?
     return list_empty(head);
-
-    /* Scrittura alternativa
-    if (list_empty(head) == 1)
-        return true;
-    else
-        return false;*/
 }
 
 void insertMessage(struct list_head *head, msg_t *m) {
@@ -100,23 +87,23 @@ message from p ptr was found Return NULL;
 otherwise return the pointer
 to the removed message*/
 
-    int failed = 1;
+    if (list_empty(head)) {
+        return NULL;    
+    }
+
     if (p_ptr == NULL) {
-        return container_of(&msgFree_h.next, msg_t, m_list); //Il nome della lista dovrebbe ritornare il primo valore
+        return container_of(head->next, msg_t, m_list); //Il nome della lista dovrebbe ritornare il primo valore
     }
-    else if (list_empty(&msgFree_h)) {
-        return NULL;
+    
+    struct list_head* iter;
+    list_for_each(iter, head){
+        msg_t * item = container_of(iter, msg_t, m_list);
+        if (item->m_sender == p_ptr) {
+            list_delm_list(&item->m_list); //(*elem) è un puntatore
+            return item;
+        }   
     }
-    else {
-        struct list_head* iter;
-        list_for_each(iter, head){
-           msg_t * item = container_of(iter, msg_t, m_list);
-           if (item->m_sender == p_ptr) {
-               list_del(item); //(*elem) è un puntatore
-               return item;
-           }   
-        }
-    }
+    
     return NULL;
 
 }
@@ -126,10 +113,9 @@ msg_t *headMessage(struct list_head *head) {
     Do not remove the message from the queue. 
     Return NULL if the queue is empty*/
 
-    if (list_empty(&msgFree_h))
+    if (list_empty(head))
         return NULL;
-
     else 
-        return head;
+        return head->next;
     
 }
