@@ -1,5 +1,4 @@
 #include "./headers/msg.h"
-#include "../klog.c"
 
 static msg_t msgTable[MAXMESSAGES];
 LIST_HEAD(msgFree_h); //initializes msgFree_h as an empty linked list
@@ -50,31 +49,28 @@ void mkEmptyMessageQ(struct list_head *head) {
 	/* used to initialize a variable to be head pointer to a message queue;
     returns a pointer to the head of an empty message queue.*/
 
-    //MESSAGGIO NUOVO? --> No
-
-    INIT_LIST_HEAD(head); //INIT_LIST_HEAD(struct list_head* list){}
-    //return head; Avanza
+    INIT_LIST_HEAD(head); 
 }
 
 int emptyMessageQ(struct list_head *head) {
 	/*TRUE if the queue whose tail is pointed to by head is empty,
     FALSE otherwise.*/
     //Se la coda della lista su cui punta head é vuota?Quindi se la lista é vuota?
-    return list_empty(head);
+    return list_empty(head->prev);
 }
 
 void insertMessage(struct list_head *head, msg_t *m) {
 	/*: insert the message pointed to by m at the end (tail) of
     the queue whose head pointer is pointed to by head.*/
 
-    list_add_tail(&m->m_list, head);
+    list_add_tail(&(m->m_list), head);
 }
 
 void pushMessage(struct list_head *head, msg_t *m) {
 	/* insert the message pointed to by m at the head of the
     queue whose head pointer is pointed to by head.*/
 
-    list_add(&m->m_list, head);
+    list_add((&m->m_list), head);
 }
 
 msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
@@ -92,14 +88,18 @@ to the removed message*/
     }
 
     if (p_ptr == NULL) {
-        return container_of(head->next, msg_t, m_list); //Il nome della lista dovrebbe ritornare il primo valore
+        msg_t * m = container_of(head->next, msg_t, m_list); //Il nome della lista dovrebbe ritornare il primo valore
+        list_del(&m->m_list);
+        INIT_LIST_HEAD(&m->m_list);
+        return m;
     }
     
-    struct list_head* iter;
+    struct list_head * iter;
     list_for_each(iter, head){
         msg_t * item = container_of(iter, msg_t, m_list);
         if (item->m_sender == p_ptr) {
-            list_delm_list(&item->m_list); //(*elem) è un puntatore
+            list_del(&item->m_list); //(*elem) è un puntatore
+            INIT_LIST_HEAD(&item->m_list);
             return item;
         }   
     }
@@ -116,6 +116,6 @@ msg_t *headMessage(struct list_head *head) {
     if (list_empty(head))
         return NULL;
     else 
-        return head->next;
+        return container_of(head->next, msg_t, m_list);
     
 }
