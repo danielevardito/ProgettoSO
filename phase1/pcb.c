@@ -98,21 +98,10 @@ int emptyChild(pcb_t *p) {
 }
 
 void insertChild(pcb_t *prnt, pcb_t *p) {
-    /*se non ci sono figli, inserisci il primo figlio
-    facendo puntare da p_child.next del padre p_sib del nuovo figlio
-    */
-    if(emptyChild(prnt)){
-        list_add(&p->p_sib, &prnt->p_child);
-    }
-    else{
-        /*
-        se già ci sono figli, inserisci un figlio intermedio nella lista dei p_sib
-        */
-        pcb_t * fstChild = container_of(&prnt->p_child.next, pcb_t, p_sib);
-        list_add_tail(&p->p_sib, &prnt->p_child);
-    }
 
+    list_add_tail(&p->p_sib, &prnt->p_child);
     p->p_parent = prnt;
+    
 }
 
 pcb_t *removeChild(pcb_t *p) {
