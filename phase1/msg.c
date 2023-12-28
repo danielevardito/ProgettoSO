@@ -6,14 +6,13 @@ LIST_HEAD(msgFree_h); //initializes msgFree_h as an empty linked list
 void initMsgs() {
 
     for (int i = 0; i < MAXMESSAGES; i++) { 
-        
-        INIT_LIST_HEAD(&msgTable[i].m_list);
-        list_add_tail(&msgTable[i].m_list, &msgFree_h); //Aggiunge in coda tutti gli elementi di m_list
-
+        freeMsg(&msgTable[i]);
     }
+
 }
 
 void freeMsg(msg_t *m) {  
+    INIT_LIST_HEAD(&m->m_list);
     list_add_tail(&m->m_list, &msgFree_h); 
 }
 
@@ -33,22 +32,20 @@ msg_t *allocMsg() {
 
  }
 
-
-
 void mkEmptyMessageQ(struct list_head *head) {
     INIT_LIST_HEAD(head); 
 }
 
 int emptyMessageQ(struct list_head *head) {
-    return list_empty(head->prev);
+    return list_empty(head);
 }
 
 void insertMessage(struct list_head *head, msg_t *m) {
-    list_add_tail(&(m->m_list), head);
+    list_add_tail(&m->m_list, head);
 }
 
 void pushMessage(struct list_head *head, msg_t *m) {
-    list_add((&m->m_list), head);
+    list_add(&m->m_list, head);
 }
 
 msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
@@ -67,13 +64,15 @@ msg_t *popMessage(struct list_head *head, pcb_t *p_ptr) {
     struct list_head * iter;
     list_for_each(iter, head){
         msg_t * item = container_of(iter, msg_t, m_list);
+        //se p_ptr è in lista, rimuovilo e ritorna il messaggio corrispondente
         if (item->m_sender == p_ptr) {
             list_del(&item->m_list); //(*elem) è un puntatore
             INIT_LIST_HEAD(&item->m_list);
             return item;
         }   
     }
-    
+
+    //il PCB (diverso da NULL) di cui va rimosso il messaggio non è in lista
     return NULL;
 
 }
