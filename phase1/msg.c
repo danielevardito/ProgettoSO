@@ -1,7 +1,7 @@
 #include "./headers/msg.h"
 
 static msg_t msgTable[MAXMESSAGES];
-LIST_HEAD(msgFree_h); //initializes msgFree_h as an empty linked list
+LIST_HEAD(msgFree_h); 
 
 void initMsgs() {
 
