@@ -34,6 +34,13 @@ pcb_t *allocPcb() {
     next_pid++;
     p->p_time = 0;
 
+    p->p_s.entry_hi = 0;
+    p->p_s.cause = 0;
+    p->p_s.hi = 0;
+    p->p_s.lo = 0;
+    p->p_s.pc_epc = 0;
+    p->p_s.status = 0;
+
     return p;
 }
 
