@@ -9,7 +9,7 @@
 
 #include <umps/const.h>
 
-/* Number of semaphore's device */
+/* Number of semaphore's dev */
 #define SEMDEVLEN 49
 #define RECVD    5
 
