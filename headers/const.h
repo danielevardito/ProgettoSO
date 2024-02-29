@@ -1,7 +1,7 @@
 #ifndef PANDOS_CONST_H_INCLUDED
 #define PANDOS_CONST_H_INCLUDED
 
-/****************************************************************************
+/***************************************************************************
  *
  * This header file contains utility constants & macro definitions.
  *
