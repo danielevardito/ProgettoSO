@@ -92,4 +92,11 @@ typedef struct ssi_do_io_t
     unsigned int commandValue;
 } ssi_do_io_t, *ssi_do_io_PTR;
 
+typedef struct passupvector {
+    unsigned int tlb_refill_handler;
+    unsigned int tlb_refill_stackPtr;
+    unsigned int exception_handler;
+    unsigned int exception_stackPtr;
+} passupvector_t;
+
 #endif
