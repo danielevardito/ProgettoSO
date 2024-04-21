@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <umps/libumps.h>
+#include "headers/pcb.h"
+#include "headers/msg.h"
 
 // Definizione delle costanti per i codici di eccezione
 #define IOINTERRUPTS 0
@@ -8,6 +11,13 @@
 #define PROGRAMTRAP_MIN 4
 #define PROGRAMTRAP_MAX 7
 #define SYSEXCEPTION 8
+
+void uTLB_RefillHandler(){ 
+    setENTRYHI(0x80000000);
+    setENTRYLO(0x00000000);
+    TLBWR();
+    LDST((state_t*) 0x0FFFF000);
+}
 
 // Prototipi delle funzioni di gestione delle eccezioni
 void device_interrupt_handler();

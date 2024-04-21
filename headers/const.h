@@ -196,4 +196,10 @@
 /* Inizio indirizzo di device registers */
 #define START_DEVREG		0x10000054
 
+//Stati del processore: (Ready, Blocked, Running)
+#define IDLE        0
+#define READY		1
+#define BLOCKED		2
+#define RUNNING		3
+
 #endif

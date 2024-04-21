@@ -30,12 +30,14 @@ los punteros a las funciones de manejo de excepciones, como se indica en los com
 
 */
 
+extern uTLB_RefillHandler;
+
 // Funzione principale
 int main() {
     passupvector_t * passup_vector;
-    passup_vector->tlb_refll_handler = (memaddr)uTLB_RefillHandler;
+    passup_vector->tlb_refill_handler = (memaddr)uTLB_RefillHandler;
 
-    passup_vector->stackPtr = KERNELSTACK;
+    passup_vector->tlb_refill_stackPtr = KERNELSTACK;
 
     // Passo 3: Inizializzare le strutture dati del Livello 2
     initPcbs();
@@ -58,6 +60,9 @@ int main() {
     list_add(&firstProcess->p_list, &ready_queue);
     process_count++;
 
+    //imposta lo stato del processo su READY
+    firstProcess->rrb_s = READY;
+
      // Abilita gli interrupt
     firstProcess->p_s.status = firstProcess->p_s.status | IEPON;
 
@@ -73,8 +78,8 @@ int main() {
     //Impostare tutti i campi della struttura dei processi su NULL
 
     firstProcess->p_parent = NULL;
-    firstProcess->p_child = NULL;
-    firstProcess->p_sib = NULL;
+    INIT_LIST_HEAD(&firstProcess->p_child);
+    INIT_LIST_HEAD(&firstProcess->p_sib);
     
     //Impostare il campo del tempo accumulato (p_time) su zero.
 
@@ -91,6 +96,9 @@ int main() {
     list_add(&scndProcess->p_list, &ready_queue);
     process_count++;
 
+    //imposta lo stato del processo su READY
+    scndProcess->rrb_s = READY;
+
      // Abilita gli interrupt
     scndProcess->p_s.status = scndProcess->p_s.status | IEPON;
 
@@ -106,8 +114,8 @@ int main() {
     //Impostare tutti i campi della struttura dei processi su NULL
 
     scndProcess->p_parent = NULL;
-    scndProcess->p_child = NULL;
-    scndProcess->p_sib = NULL;
+    INIT_LIST_HEAD(&scndProcess->p_child);
+    INIT_LIST_HEAD(&scndProcess->p_sib);
     
     //Impostare il campo del tempo accumulato (p_time) su zero.
 

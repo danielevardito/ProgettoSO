@@ -59,6 +59,10 @@ typedef struct pcb_t
 
     /* process id */
     int p_pid;
+
+    /* process state (Running, Ready, Blocked) */
+    int rrb_s;
+
 } pcb_t, *pcb_PTR;
 
 /* message entry type */

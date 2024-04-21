@@ -41,6 +41,8 @@ pcb_t *allocPcb() {
     p->p_s.pc_epc = 0;
     p->p_s.status = 0;
 
+    p->rrb_s = IDLE;
+
     return p;
 }
 
