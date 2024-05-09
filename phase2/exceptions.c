@@ -3,6 +3,8 @@
 #include <umps/libumps.h>
 #include "headers/pcb.h"
 #include "headers/msg.h"
+#include <umps/const.h>
+#include <umps/types.h>
 
 // Definizione delle costanti per i codici di eccezione
 #define IOINTERRUPTS 0
@@ -24,7 +26,7 @@ void uTLB_RefillHandler()
     setENTRYHI(0x80000000);
     setENTRYLO(0x00000000);
     TLBWR();
-    LDST((state_t *)0x0FFFF000);
+    LDST((state_t *)BIOSDATAPAGE);
 }
 
 // TODO
@@ -115,8 +117,15 @@ void syscall_exception_handler(state_t *prev_processor_state)
     else if(!kernelMode){
         unsigned int ExcCode_value = current_process->p_s->cause->ExcCode;
         current_process->p_s->ri = ExcCode_value;
+        current_process->p_s->cause->ExcCode = ri;
+
+        program_trap_handler();
+        //dubbio da specifiche
+    LDST((state_t *)BIOSDATAPAGE)
     }
 }
+
+
 
 void exceptionHandler()
 {
