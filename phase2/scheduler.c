@@ -34,7 +34,7 @@ void scheduler() {
         current_process = p;
 
         //Passo allo stato running
-        p->rrb_s = RUNNING;
+        p->state = RUNNING;
 
         //Carico il tempo nel PLT
         setTIMER(TIMESLICE);

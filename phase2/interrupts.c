@@ -5,7 +5,7 @@
 
 
 // Funzione per gestire le interruzioni
-void HandleInterrupt(int linea_interruzione, int numero_dispositivo) {
+void handleInterrupt(int linea_interruzione, int numero_dispositivo) {
     // Verificare il tipo di interruzione
     switch (linea_interruzione) {
     case PLT_INTERRUPT:
@@ -23,7 +23,7 @@ void HandleInterrupt(int linea_interruzione, int numero_dispositivo) {
         // Salvare lo stato del dispositivo
         int stato_dispositivo = LeggiRegistroDispositivo(devAddrBase);
         // Riconoscere l'interruzione in sospeso scrivendo un comando di ACK nel registro del dispositivo
-        ScriviRegistroDispositivo(devAddrBase, ACK);
+        ScriviRegistroDispositivo(devAddrBase, 0);
         // Sbloccare il processo (PCB) che ha avviato questa operazione di I/O e ha richiesto la risposta dello stato
         SbloccaProcessoInAttesa();
         // Inserire il codice di stato nel registro v0 del PCB sbloccato

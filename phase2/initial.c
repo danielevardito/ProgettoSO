@@ -31,11 +31,13 @@ los punteros a las funciones de manejo de excepciones, como se indica en los com
 */
 
 extern uTLB_RefillHandler;
+extern exceptionHandler;
 
 // Funzione principale
 int main() {
     passupvector_t * passup_vector;
     passup_vector->tlb_refill_handler = (memaddr)uTLB_RefillHandler;
+    passup_vector->exception_handler = (memaddr)exceptionHandler;
 
     passup_vector->tlb_refill_stackPtr = KERNELSTACK;
 
@@ -61,7 +63,7 @@ int main() {
     process_count++;
 
     //imposta lo stato del processo su READY
-    firstProcess->rrb_s = READY;
+    firstProcess->state = READY;
 
      // Abilita gli interrupt
     firstProcess->p_s.status = firstProcess->p_s.status | IEPON;
@@ -97,7 +99,7 @@ int main() {
     process_count++;
 
     //imposta lo stato del processo su READY
-    scndProcess->rrb_s = READY;
+    scndProcess->state = READY;
 
      // Abilita gli interrupt
     scndProcess->p_s.status = scndProcess->p_s.status | IEPON;

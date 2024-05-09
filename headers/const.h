@@ -202,4 +202,6 @@
 #define BLOCKED		2
 #define RUNNING		3
 
+#define KUp_MASK    8
+
 #endif

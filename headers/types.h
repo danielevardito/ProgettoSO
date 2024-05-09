@@ -61,7 +61,7 @@ typedef struct pcb_t
     int p_pid;
 
     /* process state (Running, Ready, Blocked) */
-    int rrb_s;
+    int state;
 
 } pcb_t, *pcb_PTR;
 
