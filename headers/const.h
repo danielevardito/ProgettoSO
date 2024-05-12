@@ -204,4 +204,7 @@
 
 #define KUp_MASK    8
 
+//Magic number dell'SSI
+#define SSI_PROCESS 0x12345678
+
 #endif

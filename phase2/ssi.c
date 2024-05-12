@@ -2,73 +2,56 @@
 #include "headers/pcb.h"
 #include "headers/msg.h"
 
-void SSI_function_entry_point();
-
-// SSI process function
-void SSIProcess();
-
-// Function to create a new process
-pcb_t* createProcess(ssi_create_process_t *create_args);
-
-// Function to terminate a process and its progeny
-void terminateProcess(pcb_t *process);
-
-// Function to perform I/O operation
-void performIO(ssi_do_io_t *do_io_args);
-
-// Function to receive request
-void receive_request(ssi_payload_t *payload);
-
-// Function to send response
-void send_response(void *response);
-
-// Handle CreateProcess service request
-void handleCreateProcess(ssi_create_process_t *create_args);
-
-// Handle TerminateProcess service request
-void handleTerminateProcess(pcb_t *process);
-
-// Handle DoIO service request
-void handleDoIO(ssi_do_io_t *do_io_args);
-
-int main() {
-    // Start SSI process
-    SSIProcess();
-    return 0;
-}
-
-void SSIProcess() {
-    while (1) {
+void SSI()
+{
+    while (1)
+    {
         // Receive request
-        ssi_payload_t payload;
-        receive_request(&payload);
 
-        // Handle request
-        switch (payload.service_code) {
-            case CREATEPROCESS:
-                handleCreateProcess((ssi_create_process_t *)payload.arg);
-                break;
-            case TERMINATEPROCESS:
-                handleTerminateProcess((pcb_t *)payload.arg);
-                break;
-            case DOIO:
-                handleDoIO((ssi_do_io_t *)payload.arg);
-                break;
-            // Add cases for other service requests here
-        }
+        state_t * current_processor_state;
+        STST(current_processor_state);
+        pcb_t * sender = current_processor_state->gpr[4]; // registro a1 - mittente
+
+        ssi_payload_t * payload = current_processor_state->gpr[5];
+
+        SSIRequest(sender, payload->service_code, payload->arg);
+
+        // Send response
     }
 }
 
-pcb_t* createProcess(ssi_create_process_t *create_args) {
+void SSIRequest(pcb_t *sender, int service, void *arg)
+{
+
+    // Handle request
+    switch (service)
+    {
+    case CREATEPROCESS:
+        handleCreateProcess(sender, (ssi_create_process_t *)arg);
+        break;
+    case DOIO:
+        handleDoIO((ssi_do_io_t *)arg);
+        break;
+    // Add cases for other service requests here
+    default:
+        // Caso in cui non si tratta di un servizio valido
+        // Termina il processo chiamante e tutta la sua progenia
+        handleTerminateProcess((pcb_t *)arg);
+    }
+}
+
+pcb_t *createProcess(ssi_create_process_t *create_args)
+{
     // Allocate new PCB
     pcb_t *new_process = allocPcb();
-    if (new_process == NULL) {
+    if (new_process == NULL)
+    {
         // Return error if PCB allocation failed
         return (pcb_t *)NOPROC;
     }
 
     // Initialize PCB fields
-    new_process->state = *(create_args->state);
+    //new_process->state = *(create_args->state);
     // Initialize other fields as needed
 
     // Add new process to ready queue, process tree, etc.
@@ -77,7 +60,8 @@ pcb_t* createProcess(ssi_create_process_t *create_args) {
     return new_process;
 }
 
-void terminateProcess(pcb_t *process) {
+void terminateProcess(pcb_t *process)
+{
     // Recursively terminate progeny
     // ...
 
@@ -85,7 +69,8 @@ void terminateProcess(pcb_t *process) {
     freePcb(process);
 }
 
-void performIO(ssi_do_io_t *do_io_args) {
+void performIO(ssi_do_io_t *do_io_args)
+{
     // Perform I/O operation
     // ...
 
@@ -93,27 +78,44 @@ void performIO(ssi_do_io_t *do_io_args) {
     // ...
 }
 
-void receive_request(ssi_payload_t *payload) {
+void receive_request(ssi_payload_t *payload)
+{
     // Receive request using RECEIVEMESSAGE syscall
     SYSCALL(RECEIVEMESSAGE, (unsigned int)payload, 0, 0);
 }
 
-void send_response(void *response) {
+void send_response(void *response)
+{
     // Send response using SENDMESSAGE syscall
     SYSCALL(SENDMESSAGE, (unsigned int)response, 0, 0);
 }
 
-void handleCreateProcess(ssi_create_process_t *create_args) {
+void handleCreateProcess(pcb_t * sender, ssi_create_process_t *create_args)
+{
     pcb_t *new_process = createProcess(create_args);
     send_response(new_process);
 }
 
-void handleTerminateProcess(pcb_t *process) {
+void handleTerminateProcess(pcb_t *process)
+{
+    if (process == NULL)
+        return;
+
+    /*
+    Finchè ci sono figli, rimuovili
+    */
+    while (!emptyChild(process))
+    {
+        handleTerminateProcess(process->p_child.next);
+    }
+    outChild(process);
     terminateProcess(process);
+
     // Send response indicating termination completion
 }
 
-void handleDoIO(ssi_do_io_t *do_io_args) {
+void handleDoIO(ssi_do_io_t *do_io_args)
+{
     performIO(do_io_args);
     // Send response indicating I/O completion
 }

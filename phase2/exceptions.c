@@ -80,6 +80,10 @@ void syscall_exception_handler(state_t *prev_processor_state)
         {
             prev_processor_state->gpr[1] = MSGNOGOOD; // v0 = MSGNOGOOD
         }
+
+        state_t * newState = (state_t *)BIOSDATAPAGE;
+        newState->pc_epc += WORDLEN;
+        LDST(newState);
     }
     /*
         Caso RECEIVEMESSAGE
@@ -113,15 +117,19 @@ void syscall_exception_handler(state_t *prev_processor_state)
             current_process->state = BLOCKED;
             list_add_tail(&sender->p_list, &blocked_pcbs);
         }
+
+        current_process->p_s = prev_processor_state;
+        //aggiorno il tempo accumulato della CPU per il current process
+        //(INTERRUPTS - SEZIONE 10)
+        scheduler();
     }
     else if(!kernelMode){
         unsigned int ExcCode_value = current_process->p_s->cause->ExcCode;
         current_process->p_s->ri = ExcCode_value;
-        current_process->p_s->cause->ExcCode = ri;
+        current_process->p_s->cause->ExcCode = 10; //RI = 10
 
         program_trap_handler();
         //dubbio da specifiche
-    LDST((state_t *)BIOSDATAPAGE)
     }
 }
 
