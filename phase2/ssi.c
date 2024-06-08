@@ -84,7 +84,7 @@ void receive_request(ssi_payload_t *payload)
     SYSCALL(RECEIVEMESSAGE, (unsigned int)payload, 0, 0);
 }
 
-void send_response(void *response)                                          //come fa a sapere a chi mandarla?
+void send_response(void *response)
 {
     // Send response using SENDMESSAGE syscall
     SYSCALL(SENDMESSAGE, (unsigned int)response, 0, 0);
