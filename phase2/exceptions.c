@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <umps/libumps.h>
-#include "headers/pcb.h"
-#include "headers/msg.h"
 #include <umps/const.h>
 #include <umps/types.h>
+#include "headers/exceptions.h"
+
+
+#include "../phase1/headers/msg.h"
+#include "../headers/types.h"
+#include "../headers/const.h"
 
 // Definizione delle costanti per i codici di eccezione
 #define IOINTERRUPTS 0
@@ -13,13 +17,15 @@
 #define PROGRAMTRAP_MIN 4
 #define PROGRAMTRAP_MAX 7
 #define SYSEXCEPTION 8
+#define GPR_LEN 32
 
-extern handleInterrupt;
-extern pcbFree_h;
-extern ready_queue;
-extern blocked_pcbs;
+extern void handleInterrupt();
+extern struct list_head ready_queue;
+extern struct list_head blocked_pcbs;
+extern void scheduler();
+extern void handleTerminateProcess();
 
-extern current_process;
+extern pcb_t* current_process;
 
 void uTLB_RefillHandler()
 {
@@ -29,30 +35,38 @@ void uTLB_RefillHandler()
     LDST((state_t *)BIOSDATAPAGE);
 }
 
-// TODO
-void tlb_exception_handler();
 
-// TODO
-void program_trap_handler();
 
-// TODO
+
 void syscall_exception_handler(state_t *prev_processor_state)
 {
-    unsigned int a0 = prev_processor_state->gpr[4];
-    pcb_t *a1 = prev_processor_state->gpr[5];       // registro a1 - destinazione
+    //gpr è la struttura con i registri
+    unsigned int a0 = prev_processor_state->gpr[4]; // registro a0 - selettore
+    pcb_t *a1 = prev_processor_state->gpr[5];       // registro a1
     unsigned int a2 = prev_processor_state->gpr[6]; // registro a2 - payload
 
     unsigned int kernelMode = getSTATUS() & KUp_MASK;
     /*
+        Caso Pass up or die    
+    */
+    if (kernelMode && (a0 >= 1))
+    {
+        pass_up_or_die(GENERALEXCEPT,prev_processor_state);
+    }
+    /*
         Caso SENDMESSAGE
     */
-    if (kernelMode && (a0 >= -2 && a0 <= -1))
+    if (kernelMode && (a0 == SENDMESSAGE))
     {
 
         pcb_t *destination = a1;
         unsigned int payload = a2;
 
         msg_t *m = allocMsg();
+        if(m==NULL)                                   // se non c'è più spazio
+        {
+            prev_processor_state->gpr[1] = MSGNOGOOD; // v0 = MSGNOGOOD
+        }
         m->m_payload = payload;
         m->m_sender = current_process;
 
@@ -63,73 +77,52 @@ void syscall_exception_handler(state_t *prev_processor_state)
         else if (destination->state == READY)
         {
             insertMessage(&destination->msg_inbox, m);
+            prev_processor_state->gpr[1] = 0; // v0 = 0
         }
         else if (destination->state == BLOCKED)
         {
             list_del(&destination->p_list);
             list_add_tail(&destination->p_list, &ready_queue);
             insertMessage(&destination->msg_inbox, m);
-        }
-
-        int result = SYSCALL(SENDMESSAGE, (unsigned int)destination, (unsigned int)payload, 0);
-        if (result)
-        {
             prev_processor_state->gpr[1] = 0; // v0 = 0
-        }
-        else
-        {
-            prev_processor_state->gpr[1] = MSGNOGOOD; // v0 = MSGNOGOOD
         }
 
         state_t * newState = (state_t *)BIOSDATAPAGE;
-        newState->pc_epc += WORDLEN;
+        newState->pc_epc += WORDLEN;                   // Aumento il program counter
         LDST(newState);
     }
     /*
         Caso RECEIVEMESSAGE
     */
-    else if (kernelMode && a0 == -2)
+    else if (kernelMode && a0 == RECEIVEMESSAGE)
     {
-        SYSCALL(RECEIVEMESSAGE, (unsigned int)a1, (unsigned int)a2, 0);
-
         pcb_t *sender = prev_processor_state->gpr[5];        // registro a1 - mittente
         unsigned int payload = prev_processor_state->gpr[6]; // registro a2 - payload
 
-        msg_t *m = allocMsg();
-
-        int found = 0;
-
-        if ((unsigned int)sender != ANYMESSAGE){
-            struct list_head *iter;
-            list_for_each(iter, &current_process->msg_inbox)
-            {
-                m = container_of(iter, msg_t, m_list);
-                if (m->m_sender == sender)
-                {
-                    found = 1;
-                    break;
-                }
-            }
+        msg_t *m;
+        if (sender==ANYMESSAGE)
+        {
+            m = popMessage(&current_process->msg_inbox,NULL);
+        }
+        else {
+            m = popMessage(&current_process->msg_inbox,sender);
         }
 
-        if (list_empty(&sender->msg_inbox || !found))
+        if (m==NULL) // se non c'è alcun messagio che soddisfi i requisiti
         {
             current_process->state = BLOCKED;
-            list_add_tail(&sender->p_list, &blocked_pcbs);
+            list_add_tail(&current_process->p_list, &blocked_pcbs);  
         }
 
         current_process->p_s = prev_processor_state;
-        //aggiorno il tempo accumulato della CPU per il current process
-        //(INTERRUPTS - SEZIONE 10)
         scheduler();
     }
     else if(!kernelMode){
         unsigned int ExcCode_value = current_process->p_s->cause->ExcCode;
         current_process->p_s->ri = ExcCode_value;
-        current_process->p_s->cause->ExcCode = 10; //RI = 10
+        current_process->p_s->cause->ExcCode = 10; // RI = 10
 
-        program_trap_handler();
-        //dubbio da specifiche
+        program_trap_handler(prev_processor_state);
     }
 }
 
@@ -139,8 +132,7 @@ void exceptionHandler()
 {
     // Salvo lo stato del processo in BIOSDATAPAGE prima dell'eccezione
     state_t *prev_processor_state = (state_t *)BIOSDATAPAGE;
-    STST(prev_processor_state);
-    prev_processor_state->gpr[4];
+    STST(prev_processor_state);  // Carico lo stato precedente
 
     // Prendo l'eccezione da gestire
     unsigned int cause_register = getCause();
@@ -149,14 +141,14 @@ void exceptionHandler()
     switch (exc_code)
     {
     case IOINTERRUPTS:
-        handleInterrupt(exc_code, IOINTERRUPTS); // TODO
+        handleInterrupt(exc_code, IOINTERRUPTS);
         break;
-    case 1 ... 3: // TLB Exceptions
-        tlb_exception_handler();
+    case 1 ... 3:      // TLB Exceptions
+        tlb_exception_handler(prev_processor_state);
         break;
     case 4 ... 7:
-    case 9 ... 12: // Program Traps
-        program_trap_handler();
+    case 9 ... 12:     // Program Traps
+        program_trap_handler(prev_processor_state);
         break;
     case SYSEXCEPTION: // Syscall
         syscall_exception_handler(prev_processor_state);
@@ -164,35 +156,37 @@ void exceptionHandler()
     }
 }
 
-// Prototipi delle funzioni di gestione delle eccezioni
-void device_interrupt_handler();
-
-/*Este código define una función exception_handler que recibe un código de excepción y utiliza una instrucción
-switch para determinar qué función de manejo de excepciones llamar, dependiendo del código de excepción proporcionado.
-Cada función de manejo de excepciones implementa el comportamiento adecuado para el tipo de excepción
-correspondiente, como interrupciones de dispositivo, excepciones de TLB, trampas de programa y excepciones
-de SYSCALL.*/
-
-// Funzione per gestire le interruzioni del dispositivo
-void device_interrupt_handler()
+void pass_up_or_die(unsigned int index_value, state_t *exception_state)
 {
-    // Implementazione della gestione delle interruzioni del dispositivo
+    if(current_process!=NULL)
+    {
+    
+        if(current_process->p_supportStruct == NULL)
+        {
+            handleTerminateProcess(current_process);
+            scheduler();
+        }
+        else
+        {
+            current_process->p_supportStruct->sup_exceptState[index_value] = *exception_state;
+            context_t saved_context = current_process->p_supportStruct->sup_exceptContext[index_value];  //salvo il contesto perché sia disponibile
+            LDCXT(saved_context.stackPtr, saved_context.status, saved_context.pc);  //cambia lo stato del processo attuale
+        }
+    }
+
 }
+
+// Funzioni di gestione delle eccezioni
 
 // Funzione per gestire le eccezioni di TLB
-void tlb_exception_handler()
+void tlb_exception_handler(state_t *exception_state)
 {
-    // Implementazione della gestione delle eccezioni di TLB
+    pass_up_or_die(PGFAULTEXCEPT, exception_state);
 }
 
-// Funzione per gestire le trappole del programma
-void program_trap_handler()
+// Funzione per gestire le trap del programma
+void program_trap_handler(state_t *exception_state)
 {
-    // Implementazione della gestione delle trappole del programma
+    pass_up_or_die(GENERALEXCEPT, exception_state);
 }
 
-// Funzione per gestire le eccezioni di SYSCALL
-void syscall_exception_handler()
-{
-    // Implementazione della gestione delle eccezioni di SYSCALL
-}
