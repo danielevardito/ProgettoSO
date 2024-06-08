@@ -1,6 +1,9 @@
 #include <umps3/umps/libumps.h>
-#include "headers/pcb.h"
-#include "headers/msg.h"
+#include "../phase1/headers/pcb.h"
+#include "headers/ssi.h"
+
+extern pcb_t* current_process;
+extern struct list_head blocked_pcbs;
 
 void SSI()
 {
@@ -35,7 +38,7 @@ void SSIRequest(pcb_t *sender, int service, void *arg)
     // Add cases for other service requests here
     default:
         // Caso in cui non si tratta di un servizio valido
-        // Termina il processo chiamante e tutta la sua progenia
+        // Termina il processo chiamante e tutta la sua progenie
         handleTerminateProcess((pcb_t *)arg);
     }
 }
@@ -62,9 +65,7 @@ pcb_t *createProcess(ssi_create_process_t *create_args)
 
 void terminateProcess(pcb_t *process)
 {
-    // Recursively terminate progeny
-    // ...
-
+    process->state = IDLE;
     // Terminate process
     freePcb(process);
 }
@@ -73,7 +74,6 @@ void performIO(ssi_do_io_t *do_io_args)
 {
     // Perform I/O operation
     // ...
-
     // Send response to waiting process
     // ...
 }
@@ -84,7 +84,7 @@ void receive_request(ssi_payload_t *payload)
     SYSCALL(RECEIVEMESSAGE, (unsigned int)payload, 0, 0);
 }
 
-void send_response(void *response)
+void send_response(void *response)                                          //come fa a sapere a chi mandarla?
 {
     // Send response using SENDMESSAGE syscall
     SYSCALL(SENDMESSAGE, (unsigned int)response, 0, 0);
@@ -106,7 +106,7 @@ void handleTerminateProcess(pcb_t *process)
     */
     while (!emptyChild(process))
     {
-        handleTerminateProcess(process->p_child.next);
+        handleTerminateProcess(container_of(process->p_child.next, pcb_t, p_child));
     }
     outChild(process);
     terminateProcess(process);
@@ -114,8 +114,20 @@ void handleTerminateProcess(pcb_t *process)
     // Send response indicating termination completion
 }
 
-void handleDoIO(ssi_do_io_t *do_io_args)
+void handleDoIO(ssi_do_io_t *do_io)
 {
-    performIO(do_io_args);
+    current_process->state = BLOCKED;
+    //metto il processo nella blocked list
+    list_add(&current_process->p_list, &blocked_pcbs);
+    ssi_payload_t payload = {
+        .service_code = DOIO,
+        .arg = do_io,
+    };
+    // Send the request with the payload
+    SYSCALL(SENDMESSAGE, (unsigned int)ssi_pcb, (unsigned int)(&payload), 0);
+    // Wait for SSI’s response
+    SYSCALL(RECEIVEMESSAGE, (unsigned int) ssi_pcb, (unsigned int)(&response), 0);
+
+    performIO(do_io);
     // Send response indicating I/O completion
 }
