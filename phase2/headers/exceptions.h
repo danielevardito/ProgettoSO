@@ -1,6 +1,11 @@
 #include <umps/libumps.h>
+#include <stdio.h>
+#include "../../phase1/headers/msg.h"
+
 
 void uTLB_RefillHandler();
+
+void send_message(unsigned int payload,pcb_t* sender, pcb_t* receiver, mbstate_t* processor_state);
 
 void syscall_exception_handler(state_t *prev_processor_state);
 
