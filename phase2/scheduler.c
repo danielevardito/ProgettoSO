@@ -1,12 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <umps/libumps.h>
-#include "headers/pcb.h"
-#include "headers/msg.h"
+#include "headers/scheduler.h"
+#include "../phase1/headers/pcb.h"
 
 extern int process_count;
 extern int soft_block_count;
-extern pcb_t* ready_queue;
+extern struct list_head ready_queue;
 extern pcb_t* current_process; 
 
 // Funzione per lo Scheduler

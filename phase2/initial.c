@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <umps/libumps.h>
-#include "headers/pcb.h"
-#include "headers/msg.h"
+#include "../phase1/headers/pcb.h"
+#include "../phase1/headers/msg.h"
 #include "headers/ssi.h"
+#include "headers/exceptions.h"
+#include "headers/scheduler.h"
 
 extern void test();
 
@@ -17,21 +19,6 @@ pcb_t* current_process = NULL;
 
 LIST_HEAD(blocked_pcbs);
 
-/*pass_up_vector_table es una variable global que almacena el vettore di passaggio (Pass Up Vector). 
-En el contexto del código proporcionado, se utiliza para almacenar punteros a las funciones de manejo 
-de excepciones y otros eventos que deben ser pasados desde el núcleo a niveles superiores 
-del sistema operativo para su manejo.
-
-En el código proporcionado, pass_up_vector_table se declara como una variable global en el ámbito 
-global del archivo de código fuente, pero no se le asigna un valor inicial hasta que se inicializa 
-en la función nucleus_init(). 
-Esta inicialización implica asignar memoria dinámica para la estructura pass_up_vector y configurar 
-los punteros a las funciones de manejo de excepciones, como se indica en los comentarios del código.
-
-*/
-
-extern uTLB_RefillHandler;
-extern exceptionHandler;
 
 // Funzione principale
 int main() {

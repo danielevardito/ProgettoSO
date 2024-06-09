@@ -5,10 +5,12 @@
 #include <umps/types.h>
 #include "headers/exceptions.h"
 
-
 #include "../phase1/headers/msg.h"
 #include "../headers/types.h"
 #include "../headers/const.h"
+#include "headers/ssi.h"
+#include "headers/scheduler.h"
+#include "headers/interrupts.h"
 
 // Definizione delle costanti per i codici di eccezione
 #define IOINTERRUPTS 0
@@ -19,11 +21,8 @@
 #define SYSEXCEPTION 8
 #define GPR_LEN 32
 
-extern void handleInterrupt();
 extern struct list_head ready_queue;
 extern struct list_head blocked_pcbs;
-extern void scheduler();
-extern void handleTerminateProcess();
 
 extern pcb_t* current_process;
 
@@ -36,7 +35,33 @@ void uTLB_RefillHandler()
 }
 
 
+void send_message(unsigned int payload,pcb_t* sender, pcb_t* receiver, mbstate_t* processor_state)
+{
+    msg_t *m = allocMsg();
+        if(m==NULL)                                   // se non c'è più spazio
+        {
+            processor_state->gpr[1] = MSGNOGOOD; // v0 = MSGNOGOOD
+        }
+        m->m_payload = payload;
+        m->m_sender = current_process;
 
+        if (receiver->state == IDLE)
+        {
+            processor_state->gpr[1] = DEST_NOT_EXIST; // v0 = DEST_NOT_EXIST
+        }
+        else if (receiver->state == READY)
+        {
+            insertMessage(&receiver->msg_inbox, m);
+            processor_state->gpr[1] = 0; // v0 = 0
+        }
+        else if (receiver->state == BLOCKED)
+        {
+            list_del(&receiver->p_list);
+            list_add_tail(&receiver->p_list, &ready_queue);
+            insertMessage(&receiver->msg_inbox, m);
+            processor_state->gpr[1] = 0; // v0 = 0
+        }
+}
 
 void syscall_exception_handler(state_t *prev_processor_state)
 {
@@ -61,33 +86,10 @@ void syscall_exception_handler(state_t *prev_processor_state)
 
         pcb_t *destination = a1;
         unsigned int payload = a2;
+        send_message(payload,current_process,destination,prev_processor_state);
+        
 
-        msg_t *m = allocMsg();
-        if(m==NULL)                                   // se non c'è più spazio
-        {
-            prev_processor_state->gpr[1] = MSGNOGOOD; // v0 = MSGNOGOOD
-        }
-        m->m_payload = payload;
-        m->m_sender = current_process;
-
-        if (destination->state == IDLE)
-        {
-            prev_processor_state->gpr[1] = DEST_NOT_EXIST; // v0 = DEST_NOT_EXIST
-        }
-        else if (destination->state == READY)
-        {
-            insertMessage(&destination->msg_inbox, m);
-            prev_processor_state->gpr[1] = 0; // v0 = 0
-        }
-        else if (destination->state == BLOCKED)
-        {
-            list_del(&destination->p_list);
-            list_add_tail(&destination->p_list, &ready_queue);
-            insertMessage(&destination->msg_inbox, m);
-            prev_processor_state->gpr[1] = 0; // v0 = 0
-        }
-
-        state_t * newState = (state_t *)BIOSDATAPAGE;
+        state_t * newState = (state_t *) BIOSDATAPAGE;
         newState->pc_epc += WORDLEN;                   // Aumento il program counter
         LDST(newState);
     }
@@ -170,7 +172,7 @@ void pass_up_or_die(unsigned int index_value, state_t *exception_state)
         {
             current_process->p_supportStruct->sup_exceptState[index_value] = *exception_state;
             context_t saved_context = current_process->p_supportStruct->sup_exceptContext[index_value];  //salvo il contesto perché sia disponibile
-            LDCXT(saved_context.stackPtr, saved_context.status, saved_context.pc);  //cambia lo stato del processo attuale
+            LDCXT(saved_context.stackPtr, saved_context.status, saved_context.pc);  //cambio lo stato del processo attuale
         }
     }
 
