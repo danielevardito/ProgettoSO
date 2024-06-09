@@ -6,8 +6,7 @@
 #include "headers/ssi.h"
 #include "headers/exceptions.h"
 #include "headers/scheduler.h"
-
-extern void test();
+#include "test/p2test.c"
 
 // Passo 1: Dichiarare le variabili globali
 // Variabili globali del Nucleo
